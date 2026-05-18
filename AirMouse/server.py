@@ -72,12 +72,15 @@ except:
     _mouse = DummyMouse()
     _kbd = DummyKeyboard()
 import websockets
-from websockets.server import serve
+try:
+    from websockets.asyncio.server import serve
+except ImportError:
+    from websockets.server import serve  # older websockets fallback
 
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-HTTP_PORT = int(os.environ.get("PORT", 8443))
-WS_PORT = HTTP_PORT   # WebSocket port
+HTTP_PORT  = int(os.environ.get("HTTP_PORT", 8443))
+WS_PORT    = int(os.environ.get("WS_PORT",   8765))  # WebSocket port (matches HTML default)
 CERT_FILE  = Path(__file__).parent / "cert.pem"
 KEY_FILE   = Path(__file__).parent / "key.pem"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -383,19 +386,18 @@ async def ws_handler(websocket):
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
-    def print_banner(ip: str):
-        render_url = os.environ.get("RENDER_EXTERNAL_URL")
-
-    if render_url:
-        url = render_url
-    else:
-        url = f"https://{ip}:{HTTP_PORT}"
+def print_banner(ip: str):
+    url = f"https://{ip}:{HTTP_PORT}"
+    ws_url = f"wss://{ip}:{WS_PORT}"
     print()
     print("╔══════════════════════════════════════════════════════════╗")
     print("║             🖱️  GyroCursor Server  🖱️                    ║")
     print("╠══════════════════════════════════════════════════════════╣")
     print(f"║  Open this URL on your phone's Chrome browser:           ║")
     print(f"║  👉  {url:<52} ║")
+    print("╠══════════════════════════════════════════════════════════╣")
+    print(f"║  WebSocket listening at:                                 ║")
+    print(f"║  🔌  {ws_url:<52} ║")
     print("╠══════════════════════════════════════════════════════════╣")
     print("║  ⚠️  Chrome will say 'Not private' — tap Advanced →       ║")
     print("║      Proceed to continue. (Self-signed cert, safe.)      ║")
@@ -417,30 +419,24 @@ async def main():
     ip = get_lan_ip()
     print_banner(ip)
 
-    # Start HTTPS server in background thread
-    # t = threading.Thread(target=start_https_server, args=(ip,), daemon=True)
-    # t.start()
+    # Start HTTPS server in background thread (serves the phone UI page)
+    t = threading.Thread(target=start_https_server, args=(ip,), daemon=True)
+    t.start()
 
-    # WebSocket server (WSS)
+    # WebSocket server (WSS) — receives gyroscope data from phone
     ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_ctx.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
 
     log.info(f"WebSocket server  → wss://{ip}:{WS_PORT}")
     log.info("Waiting for phone connection … (Ctrl+C to quit)")
 
-    from fastapi import FastAPI
-    import uvicorn
-
-    app = FastAPI()
-
-    @app.get("/")
-    async def home():
-        return {"status": "Mouse_controller backend running"}
-
     async with serve(ws_handler, "0.0.0.0", WS_PORT, ssl=ssl_ctx):
         await asyncio.Future()  # run forever
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Fix Windows terminal Unicode (box-drawing chars, emojis)
+    import sys
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    asyncio.run(main())
