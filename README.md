@@ -1,99 +1,299 @@
-# 🖱️ AirMouse
+# 🖱️ Mouse_controller
 
-**Use your Android phone as a 3D wireless mouse** — tilt the phone to move your laptop's cursor, just like pointing a TV remote.
-
-No APK install needed. Your phone just opens a URL in Chrome.
+A futuristic real-time motion-controlled cursor platform that transforms your smartphone into a wireless gyroscopic mouse using motion sensors, WebSockets, FastAPI, Android integration, and a modern Next.js frontend.
 
 ---
 
-## Quick Start
+# 🚀 Overview
 
-### 1. Install Python dependencies (laptop)
+Mouse_controller is a full-stack motion intelligence platform that allows users to control a desktop cursor using smartphone gyroscope motion in real time.
 
-```powershell
-cd "AirMouse"
-pip install -r requirements.txt
+The system combines:
+
+* Smartphone motion sensors
+* Real-time WebSocket communication
+* QR-based device pairing
+* FastAPI backend services
+* Android applications
+* Futuristic Next.js web interface
+* Live telemetry dashboards
+* Low-latency cursor rendering
+
+The project was designed as a next-generation wireless interaction system inspired by motion-based control technologies.
+
+---
+
+# ✨ Features
+
+## 🎯 Real-Time Gyroscope Tracking
+
+Control your desktop cursor by tilting your smartphone.
+
+## 📡 WebSocket Communication
+
+Ultra low-latency communication using secure WebSockets.
+
+## 📱 QR-Based Pairing
+
+Instant device connection through dynamically generated QR codes.
+
+## 🌐 Modern Frontend Website
+
+Production-ready futuristic frontend built using:
+
+* Next.js
+* React
+* Tailwind CSS
+* Framer Motion
+
+## 📊 Live Telemetry Dashboard
+
+Monitor:
+
+* Device connection state
+* Motion sensor values
+* Latency
+* Battery state
+* Signal strength
+
+## 🔒 Secure HTTPS + WSS Support
+
+Supports secure browser sensor access using HTTPS and WSS.
+
+## 🤖 Android Integration
+
+Includes Android-based motion controller applications.
+
+## ⚡ Cross-Platform Architecture
+
+Works across:
+
+* Windows
+* Android
+* Modern browsers
+
+---
+
+# 🏗️ System Architecture
+
+```text
+┌─────────────────────┐
+│ Smartphone Client   │
+│ Gyroscope Sensors   │
+└─────────┬───────────┘
+          │
+          │ Motion Data
+          ▼
+┌─────────────────────┐
+│ WebSocket Server    │
+│ FastAPI Backend     │
+└─────────┬───────────┘
+          │
+          │ Real-Time Events
+          ▼
+┌─────────────────────┐
+│ Desktop Frontend    │
+│ Next.js Website     │
+└─────────┬───────────┘
+          │
+          ▼
+┌─────────────────────┐
+│ OS Cursor Control   │
+│ pyautogui           │
+└─────────────────────┘
 ```
 
-### 2. Start the server (laptop)
+---
 
-```powershell
+# 🧠 Tech Stack
+
+## Frontend
+
+* Next.js
+* React
+* Tailwind CSS
+* Framer Motion
+* JavaScript
+
+## Backend
+
+* FastAPI
+* Python
+* WebSockets
+* pyautogui
+* QR Code Generation
+
+## Mobile
+
+* Android Studio
+* Kotlin
+* Motion Sensors API
+
+## Deployment
+
+* Vercel
+* Render / Railway
+* GitHub
+
+---
+
+# 📂 Project Structure
+
+```text
+GYROCURSOR-MAIN/
+│
+├── AirMouse/                 # Python motion backend
+├── main_website/             # Next.js futuristic frontend
+├── CursorBrowser/            # Android browser controller
+├── AirMouseClient/           # Android motion client
+├── gyroTCP/                  # TCP experiments
+├── UDP/                      # UDP communication experiments
+├── a2-a7/                    # Research & development modules
+├── README.md
+├── pp.apk
+└── wss.apk
+```
+
+---
+
+# 🌐 Frontend Website
+
+The frontend website includes:
+
+* Futuristic command-center UI
+* Dynamic QR onboarding panel
+* Real-time telemetry dashboard
+* Animated connection states
+* Motion visualizations
+* Responsive cyber-industrial design
+* Framer Motion animations
+* Glassmorphism effects
+* Live WebSocket integration
+
+---
+
+# 📱 Mobile Workflow
+
+1. Open the Mouse_controller desktop website
+2. Scan the generated QR code
+3. Connect smartphone sensors
+4. Start streaming gyroscope data
+5. Control desktop cursor in real time
+
+---
+
+# ⚙️ Local Development
+
+## Backend Setup
+
+```bash
+cd AirMouse
+pip install -r requirements.txt
 python server.py
 ```
 
-The terminal will print something like:
-```
-👉  https://192.168.1.42:8443
-```
+The server starts locally and generates:
 
-### 3. Connect your phone
-
-1. Make sure your phone and laptop are on **the same WiFi network**
-2. Open the printed URL in **Chrome** on your phone
-3. Chrome shows "Your connection is not private" → tap **Advanced → Proceed to site**  
-   *(This is because of the self-signed cert — normal for local network apps)*
-4. The AirMouse UI opens on your phone
-5. Tap **Connect** — the IP is auto-filled
-6. Tap **Enable Gyroscope** if prompted
-7. Now tilt the phone → cursor moves! ✅
+* HTTPS endpoint
+* QR pairing system
+* WebSocket connection server
 
 ---
 
-## Controls
+## Frontend Setup
 
-| Action | How |
-|--------|-----|
-| Move cursor | Tilt phone (like pointing a TV remote) |
-| Left click | Tap **Left Click** button |
-| Right click | Tap **Right Click** button |
-| Double click | Tap **Double** button |
-| Scroll | Tap **Scroll Up / Down** buttons |
-| Pause tracking | Tap **Tracking ON** button |
-| Adjust speed | Use the **Sensitivity** slider |
+```bash
+cd main_website
+npm install
+npm run dev
+```
+
+Frontend runs locally using Next.js.
 
 ---
 
-## Tips
+# 🔌 Environment Variables
 
-- Hold the phone **parallel to the ground**, then tilt to move the cursor
-- For **fine control**: lower sensitivity, slow tilts
-- For **quick movement**: higher sensitivity, bold tilts
-- Tap **Tracking ON/OFF** to pause when you need to reposition your hand
-- The phone screen stays **awake** automatically (Wake Lock API)
+Frontend uses:
+
+```env
+NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_WS_URL=
+```
+
+Example:
+
+```env
+NEXT_PUBLIC_API_URL=https://gyro-backend.onrender.com
+NEXT_PUBLIC_WS_URL=wss://gyro-backend.onrender.com/ws
+```
 
 ---
 
-## Troubleshooting
+# 🚀 Deployment
 
-| Problem | Fix |
-|---------|-----|
-| Can't connect | Check both devices are on same WiFi; firewall may block ports 8443/8765 — allow them in Windows Defender |
-| Cursor jumps | Lower sensitivity slider; hold phone steadier or increase dead-zone in `server.py` |
-| Chrome shows "Not private" | Normal! Tap Advanced → Proceed once |
-| Gyroscope doesn't work | On Android Chrome it needs HTTPS — make sure you used `https://` not `http://` |
+## Frontend Deployment
+
+Deploy using:
+
+* Vercel
+
+## Backend Deployment
+
+Deploy using:
+
+* Render
+* Railway
+
+The deployed architecture supports public internet-based motion control.
 
 ---
 
-## Architecture
+# 📸 Screenshots
 
-```
-Phone (Chrome)                  Laptop (Python)
-────────────────                ───────────────────────
-DeviceOrientation API           server.py
-  beta / gamma angles     →     websockets + pyautogui
-  WebSocket (WSS:8765)          moves OS cursor
-                          ←     HTTP page served HTTPS:8443
+Add screenshots inside:
+
+```text
+/docs/screenshots
 ```
 
-## Files
+Recommended screenshots:
 
-```
-AirMouse/
-├── server.py           ← Run this on your laptop
-├── requirements.txt    ← pip install -r requirements.txt
-├── static/
-│   └── index.html      ← Phone web app (auto-served)
-├── cert.pem            ← Auto-generated on first run
-├── key.pem             ← Auto-generated on first run
-└── README.md
-```
+* Landing page
+* QR pairing screen
+* Telemetry dashboard
+* Motion control interface
+* Android application
+
+---
+
+# 🔮 Future Improvements
+
+* AI-based motion smoothing
+* Gesture recognition
+* Multi-device support
+* Voice commands
+* 3D motion calibration
+* Cloud session sync
+* Remote internet-based pairing
+* Haptic feedback integration
+
+---
+
+# 👨‍💻 Author
+
+Ayush Narayan
+
+BTech ISE — BMS College of Engineering
+
+---
+
+# 📜 License
+
+This project is licensed under the MIT License.
+
+---
+
+# ⭐ Repository
+
+If you found this project interesting, consider starring the repository.
