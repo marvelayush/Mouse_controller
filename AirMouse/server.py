@@ -6,6 +6,7 @@ Usage:
     pip install -r requirements.txt
     python server.py
 """
+import uvicorn
 
 import asyncio
 import http.server
