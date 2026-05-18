@@ -4,3 +4,5 @@ cryptography>=42.0
 qrcode>=7.4
 Pillow>=10.0
 pynput>=1.7.6
+fastapi
+uvicorn

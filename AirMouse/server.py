@@ -408,8 +408,8 @@ async def main():
     print_banner(ip)
 
     # Start HTTPS server in background thread
-    t = threading.Thread(target=start_https_server, args=(ip,), daemon=True)
-    t.start()
+    # t = threading.Thread(target=start_https_server, args=(ip,), daemon=True)
+    # t.start()
 
     # WebSocket server (WSS)
     ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -417,6 +417,15 @@ async def main():
 
     log.info(f"WebSocket server  → wss://{ip}:{WS_PORT}")
     log.info("Waiting for phone connection … (Ctrl+C to quit)")
+
+    from fastapi import FastAPI
+    import uvicorn
+
+    app = FastAPI()
+
+    @app.get("/")
+    async def home():
+        return {"status": "Mouse_controller backend running"}
 
     async with serve(ws_handler, "0.0.0.0", WS_PORT, ssl=ssl_ctx):
         await asyncio.Future()  # run forever
