@@ -22,6 +22,15 @@ import time
 import webbrowser
 from pathlib import Path
 
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+async def home():
+    return {"status": "Mouse_controller backend running"}
+
+
 try:
     import pyautogui
     PYAUTOGUI_AVAILABLE = True
