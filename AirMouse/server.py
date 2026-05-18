@@ -21,15 +21,23 @@ import time
 import webbrowser
 from pathlib import Path
 
-import pyautogui
+try:
+    import pyautogui
+    PYAUTOGUI_AVAILABLE = True
+except:
+    PYAUTOGUI_AVAILABLE = False
 from pynput.mouse import Button, Controller as MouseCtrl
 from pynput.keyboard import Key, Controller as KeyCtrl
 import websockets
 from websockets.server import serve
 
-# Pynput controllers (faster than pyautogui — direct OS calls)
-_mouse = MouseCtrl()
-_kbd   = KeyCtrl()
+# Pynput controllers
+try:
+    _mouse = MouseCtrl()
+    _kbd   = KeyCtrl()
+    DISPLAY_AVAILABLE = True
+except:
+    DISPLAY_AVAILABLE = False
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 HTTP_PORT  = 8443   # HTTPS port — phone opens this
@@ -240,25 +248,31 @@ class MouseController:
 
         if dx != 0 or dy != 0:
             cur = _mouse.position
-            _mouse.position = (cur[0] + dx, cur[1] + dy)
+            if DISPLAY_AVAILABLE:
+                _mouse.position = (cur[0] + dx, cur[1] + dy)
 
     def click(self, button: str = "left"):
         btn = Button.right if button == "right" else Button.left
-        _mouse.click(btn)
+        if DISPLAY_AVAILABLE:
+            _mouse.click(btn)
 
     def double_click(self):
-        _mouse.click(Button.left, 2)
+        if DISPLAY_AVAILABLE:
+            _mouse.click(Button.left, 2)
 
     def right_click(self):
-        _mouse.click(Button.right)
+        if DISPLAY_AVAILABLE:
+            _mouse.click(Button.right)
 
     def scroll(self, dy: int):
-        _mouse.scroll(0, dy)
+        if DISPLAY_AVAILABLE:
+            _mouse.scroll(0, dy)
 
     def key_press(self, key: str):
         try:
-            _kbd.press(key)
-            _kbd.release(key)
+            if DISPLAY_AVAILABLE:
+                _kbd.press(key)
+                _kbd.release(key)
         except Exception:
             pass
 
