@@ -26,18 +26,44 @@ try:
     PYAUTOGUI_AVAILABLE = True
 except:
     PYAUTOGUI_AVAILABLE = False
-from pynput.mouse import Button, Controller as MouseCtrl
-from pynput.keyboard import Key, Controller as KeyCtrl
+try:
+    from pynput.mouse import Button, Controller as MouseCtrl
+    from pynput.keyboard import Key, Controller as KeyCtrl
+
+    _mouse = MouseCtrl()
+    _kbd   = KeyCtrl()
+
+    DISPLAY_AVAILABLE = True
+
+except:
+    DISPLAY_AVAILABLE = False
+
+    class DummyMouse:
+        position = (0, 0)
+
+        def click(self, *args, **kwargs):
+            pass
+
+        def scroll(self, *args, **kwargs):
+            pass
+
+    class DummyKeyboard:
+        def press(self, *args, **kwargs):
+            pass
+
+        def release(self, *args, **kwargs):
+            pass
+
+    class DummyButton:
+        left = "left"
+        right = "right"
+
+    Button = DummyButton
+    _mouse = DummyMouse()
+    _kbd = DummyKeyboard()
 import websockets
 from websockets.server import serve
 
-# Pynput controllers
-try:
-    _mouse = MouseCtrl()
-    _kbd   = KeyCtrl()
-    DISPLAY_AVAILABLE = True
-except:
-    DISPLAY_AVAILABLE = False
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 HTTP_PORT  = 8443   # HTTPS port — phone opens this
