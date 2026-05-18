@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#131313">
+<title>GyroCursor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ─── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; width: 100%;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #131313;
+    color: #e8e8f0;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ─── CSS Variables ─────────────────────────────────────────── */
+  :root {
+    --accent: #39ff14;
+    --accent2: #85ff5c;
+    --success: #22d3a0;
+    --danger: #ff4f6e;
+    --warn: #fbbf24;
+    --glass: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.1);
+    --radius: 20px;
+    --radius-sm: 12px;
+  }
+
+  /* ─── Background particles ─────────────────────────────────── */
+  #bg-canvas {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ─── Screens ──────────────────────────────────────────────── */
+  .screen {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; transform: scale(0.96); }
+
+  /* ─── Glass card ───────────────────────────────────────────── */
+  .card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 28px 24px;
+    width: 100%; max-width: 380px;
+  }
+
+  /* ─── Connect Screen ───────────────────────────────────────── */
+  .logo {
+    font-size: 48px; margin-bottom: 8px;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .app-title {
+    font-size: 32px; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px; text-align: center;
+  }
+  .app-subtitle {
+    font-size: 14px; color: rgba(255,255,255,0.45);
+    text-align: center; margin-bottom: 28px;
+    line-height: 1.5;
+  }
+
+  .input-group {
+    display: flex; flex-direction: column; gap: 12px;
+    margin-bottom: 20px;
+  }
+  .input-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.4); text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .input-row { display: flex; gap: 10px; }
+  input[type=text], input[type=number] {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    color: #e8e8f0;
+    font-family: inherit; font-size: 16px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: var(--accent); }
+  input[type=number] { width: 80px; flex: none; text-align: center; }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border: none; cursor: pointer; font-family: inherit;
+    border-radius: var(--radius-sm); transition: all 0.18s ease;
+    font-weight: 600; letter-spacing: 0.02em;
+  }
+  .btn:active { transform: scale(0.96); }
+
+  .btn-primary {
+    width: 100%; padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #059669);
+    color: #fff; font-size: 16px;
+    box-shadow: 0 4px 24px rgba(57,255,20,0.3);
+  }
+  .btn-primary:active { box-shadow: 0 2px 12px rgba(57,255,20,0.2); }
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--warn); display: inline-block;
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: var(--success); animation: pulse-green 2s infinite; }
+  .status-dot.error     { background: var(--danger); }
+  @keyframes pulse-green {
+    0%,100% { box-shadow: 0 0 0 0 rgba(34,211,160,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(34,211,160,0); }
+  }
+
+  /* ─── Main Control Screen ──────────────────────────────────── */
+  #main-screen {
+    flex-direction: column; gap: 14px;
+    justify-content: flex-start; padding-top: 52px;
+    overflow-y: auto;
+  }
+
+  /* status bar */
+  .status-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; max-width: 380px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px; gap: 8px;
+    backdrop-filter: blur(16px);
+  }
+  .status-text { font-size: 13px; font-weight: 500; }
+  .conn-label { opacity: 0.5; font-size: 12px; }
+
+  /* tilt visualizer */
+  .tilt-card {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    height: 200px;
+  }
+  .tilt-bg-ring {
+    position: absolute;
+    width: 160px; height: 160px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .tilt-bg-ring:nth-child(2) { width: 120px; height: 120px; }
+  .tilt-bg-ring:nth-child(3) { width: 80px; height: 80px; }
+  .crosshair {
+    position: absolute; width: 160px; height: 160px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .crosshair::before, .crosshair::after {
+    content:''; position: absolute; background: rgba(255,255,255,0.1);
+  }
+  .crosshair::before { width: 1px; height: 100%; }
+  .crosshair::after  { width: 100%; height: 1px; }
+  .tilt-dot {
+    position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle, var(--accent2), var(--accent));
+    box-shadow: 0 0 12px rgba(57,255,20,0.8);
+    transform: translate(-50%, -50%);
+    left: 50%; top: 50%;
+    transition: left 0.08s, top 0.08s;
+    z-index: 2;
+  }
+  .tilt-label {
+    position: absolute; font-size: 11px; color: rgba(255,255,255,0.35);
+    font-weight: 500; letter-spacing: 0.05em;
+  }
+  .tilt-label.top    { top: 10px; }
+  .tilt-label.bottom { bottom: 10px; }
+  .tilt-label.left   { left: 8px; top: 50%; transform: translateY(-50%); }
+  .tilt-label.right  { right: 8px; top: 50%; transform: translateY(-50%); }
+
+  .tilt-values {
+    display: flex; gap: 16px; justify-content: center; margin-top: 6px;
+  }
+  .tilt-val {
+    text-align: center;
+    font-size: 11px; color: rgba(255,255,255,0.4);
+  }
+  .tilt-val span { display: block; font-size: 16px; font-weight: 600; color: var(--accent2); }
+
+  /* sensitivity */
+  .slider-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .slider-row label { font-size: 12px; color: rgba(255,255,255,0.5); min-width: 86px; }
+  input[type=range] {
+    -webkit-appearance: none; flex: 1; height: 4px;
+    background: rgba(255,255,255,0.1); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    box-shadow: 0 0 8px rgba(57,255,20,0.5);
+  }
+  .slider-val { font-size: 13px; font-weight: 600; min-width: 28px; text-align: right; }
+
+  /* buttons grid */
+  .btn-grid {
+    display: grid; gap: 10px;
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .btn-action {
+    padding: 18px 8px; font-size: 13px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: #e8e8f0; border-radius: var(--radius-sm);
+    flex-direction: column; gap: 6px;
+  }
+  .btn-action .icon { font-size: 22px; }
+  .btn-action.left  { border-color: rgba(57,255,20,0.3); }
+  .btn-action.right { border-color: rgba(255,79,110,0.3); }
+  .btn-action.dbl   { border-color: rgba(34,211,160,0.3); }
+  .btn-action.su    { border-color: rgba(251,191,36,0.25); }
+  .btn-action.sd    { border-color: rgba(251,191,36,0.25); }
+  .btn-action.disc  { border-color: rgba(255,255,255,0.1); font-size: 11px; }
+
+  .btn-action:active {
+    background: rgba(255,255,255,0.12);
+    transform: scale(0.94);
+  }
+
+  /* tracking toggle */
+  .track-btn {
+    width: 100%; padding: 18px;
+    font-size: 17px; border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--success), #059669);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(34,211,160,0.3);
+  }
+  .track-btn.paused {
+    background: linear-gradient(135deg, #374151, #1f2937);
+    box-shadow: none;
+  }
+
+  /* section titles */
+  .section-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(255,255,255,0.3);
+    margin-bottom: 2px;
+  }
+
+  /* toast */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: rgba(19,19,19,0.95); border: 1px solid var(--glass-border);
+    color: #e8e8f0; padding: 12px 20px; border-radius: 50px;
+    font-size: 13px; font-weight: 500;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+    white-space: nowrap; z-index: 100;
+    backdrop-filter: blur(16px);
+  }
+  #toast.show { opacity: 1; }
+
+  /* permission screen */
+  .perm-icon { font-size: 64px; margin-bottom: 16px; }
+  .perm-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; text-align: center; }
+  .perm-body  {
+    font-size: 14px; color: rgba(255,255,255,0.55);
+    text-align: center; line-height: 1.6; margin-bottom: 24px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- ══════════════════ CONNECT SCREEN ═══════════════════ -->
+<div class="screen" id="connect-screen">
+  <div style="text-align:center; margin-bottom:28px;">
+    <div class="logo">🖱️</div>
+    <div class="app-title">GyroCursor</div>
+    <div class="app-subtitle">Turn your phone into a<br>3D wireless mouse</div>
+  </div>
+
+  <div class="card">
+    <div class="input-group">
+      <div>
+        <div class="input-label">Laptop IP Address</div>
+        <input type="text" id="ip-input" placeholder="192.168.1.x" autocomplete="off"
+               inputmode="decimal" spellcheck="false">
+      </div>
+      <div>
+        <div class="input-label">WebSocket Port</div>
+        <input type="number" id="port-input" value="8765" min="1" max="65535">
+      </div>
+    </div>
+    <button class="btn btn-primary" id="connect-btn" onclick="connect()">
+      <span>Connect</span> <span>→</span>
+    </button>
+    <div style="margin-top:14px; font-size:12px; color:rgba(255,255,255,0.3); text-align:center;">
+      Both devices must be on the same WiFi network
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ PERMISSION SCREEN ════════════════ -->
+<div class="screen hidden" id="perm-screen">
+  <div class="perm-icon">📡</div>
+  <div class="perm-title">Enable Gyroscope</div>
+  <div class="perm-body">
+    AirMouse needs permission to access<br>
+    your device's motion sensors to control<br>
+    the cursor on your laptop.
+  </div>
+  <button class="btn btn-primary" style="max-width:260px;" onclick="requestPermission()">
+    Allow Motion Access
+  </button>
+</div>
+
+<!-- ══════════════════ MAIN SCREEN ══════════════════════ -->
+<div class="screen hidden" id="main-screen">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="status-dot connected" id="conn-dot"></div>
+      <span class="status-text" id="conn-text">Connected</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="conn-label" id="conn-addr"></span>
+      <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:rgba(57,255,20,0.8);font-weight:600;">
+        <span style="opacity:0.6;">↔</span>
+        <span id="lat-val">--</span>
+        <span style="opacity:0.6;font-size:11px;">ms</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tracking Toggle -->
+  <div style="width:100%;max-width:380px;">
+    <button class="btn track-btn" id="track-btn" onclick="toggleTracking()">
+      <span id="track-icon">🎯</span>&nbsp; Tracking ON
+    </button>
+  </div>
+
+  <!-- Tilt Visualizer -->
+  <div class="card tilt-card" style="padding:0; overflow:hidden;">
+    <div class="tilt-bg-ring"></div>
+    <div class="tilt-bg-ring"></div>
+    <div class="tilt-bg-ring"></div>
+    <div class="crosshair"></div>
+    <div class="tilt-dot" id="tilt-dot"></div>
+    <span class="tilt-label top">↑ Tilt Back</span>
+    <span class="tilt-label bottom">↓ Tilt Fwd</span>
+    <span class="tilt-label left">← L</span>
+    <span class="tilt-label right">R →</span>
+
+    <div style="position:absolute;bottom:12px;display:flex;gap:24px;">
+      <div class="tilt-val">β <span id="val-beta">0°</span></div>
+      <div class="tilt-val">γ <span id="val-gamma">0°</span></div>
+    </div>
+  </div>
+
+  <!-- Sensitivity + Polling Rate -->
+  <div class="card" style="padding:18px 20px;">
+    <div class="section-title" style="margin-bottom:12px;">Sensitivity</div>
+    <div class="slider-row">
+      <label>Slow ↔ Fast</label>
+      <input type="range" id="sens-slider" min="3" max="50" value="18"
+             oninput="updateSensitivity(this.value)">
+      <span class="slider-val" id="sens-val">18</span>
+    </div>
+    <div style="margin-top:16px;">
+      <div class="section-title" style="margin-bottom:10px;">Polling Rate</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn poll-btn" id="poll-30"  onclick="setPollingRate(30)"  style="flex:1;padding:10px 4px;font-size:11px;background:var(--glass);border:1px solid var(--glass-border);color:#e8e8f0;border-radius:10px;">30</button>
+        <button class="btn poll-btn" id="poll-60"  onclick="setPollingRate(60)"  style="flex:1;padding:10px 4px;font-size:11px;background:linear-gradient(135deg,var(--accent),#059669);border:1px solid transparent;color:#fff;border-radius:10px;">60</button>
+        <button class="btn poll-btn" id="poll-90"  onclick="setPollingRate(90)"  style="flex:1;padding:10px 4px;font-size:11px;background:var(--glass);border:1px solid var(--glass-border);color:#e8e8f0;border-radius:10px;">90</button>
+        <button class="btn poll-btn" id="poll-120" onclick="setPollingRate(120)" style="flex:1;padding:10px 4px;font-size:11px;background:var(--glass);border:1px solid var(--glass-border);color:#e8e8f0;border-radius:10px;">120</button>
+        <button class="btn poll-btn" id="poll-240" onclick="setPollingRate(240)" style="flex:1;padding:10px 4px;font-size:11px;background:var(--glass);border:1px solid var(--glass-border);color:#e8e8f0;border-radius:10px;">240</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div style="width:100%;max-width:380px;">
+    <div class="section-title" style="margin-bottom:10px;">Actions</div>
+    <div class="btn-grid">
+      <button class="btn btn-action left"  onclick="sendClick('left')">
+        <span class="icon">👆</span> Left Click
+      </button>
+      <button class="btn btn-action right" onclick="sendClick('right')">
+        <span class="icon">👉</span> Right Click
+      </button>
+      <button class="btn btn-action dbl"   onclick="sendClick('double')">
+        <span class="icon">👆👆</span> Double
+      </button>
+      <button class="btn btn-action su"    onclick="sendScroll(3)">
+        <span class="icon">⬆️</span> Scroll Up
+      </button>
+      <button class="btn btn-action sd"    onclick="sendScroll(-3)">
+        <span class="icon">⬇️</span> Scroll Down
+      </button>
+      <button class="btn btn-action disc"  onclick="disconnect()">
+        <span class="icon">✕</span> Disconnect
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ──────────────────────────────────────────────
+//  Background Canvas — floating particle grid
+// ──────────────────────────────────────────────
+(function() {
+  const c = document.getElementById('bg-canvas');
+  const ctx = c.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = c.width  = window.innerWidth;
+    H = c.height = window.innerHeight;
+  }
+
+  function makeParticles() {
+    particles = [];
+    const N = Math.floor((W * H) / 14000);
+    for (let i = 0; i < N; i++) {
+      particles.push({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.25,
+        vy: (Math.random() - 0.5) * 0.25,
+        r: Math.random() * 1.5 + 0.4,
+        alpha: Math.random() * 0.4 + 0.1
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // faint radial glow
+    const g = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W * 0.7);
+    g.addColorStop(0, 'rgba(57,255,20,0.06)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(57,255,20,${p.alpha * 0.7})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  resize(); makeParticles(); draw();
+  window.addEventListener('resize', () => { resize(); makeParticles(); });
+})();
+
+// ──────────────────────────────────────────────
+//  App State
+// ──────────────────────────────────────────────
+let ws            = null;
+let tracking      = true;
+let prevBeta      = null;
+let prevGamma     = null;
+let smoothBeta    = 0;
+let smoothGamma   = 0;
+const ALPHA       = 0.85;  // smoothing (higher = snappier, less lag)
+let sensitivity   = 18;
+let rafId         = null;
+let lastSendTime  = 0;
+const SEND_INTERVAL_MS = 1000 / 60;  // 60 fps
+
+// ──────────────────────────────────────────────
+//  Screen management
+// ──────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.toggle('hidden', s.id !== id);
+  });
+}
+
+// ──────────────────────────────────────────────
+//  Toast
+// ──────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, dur = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ──────────────────────────────────────────────
+//  Connection
+// ──────────────────────────────────────────────
+function connect() {
+  const ip   = document.getElementById('ip-input').value.trim();
+  const port = document.getElementById('port-input').value.trim();
+  if (!ip) { toast('Enter the laptop IP address'); return; }
+
+  const url = `wss://${ip}:${port}`;
+  toast('Connecting…');
+
+  try { ws = new WebSocket(url); } catch(e) { toast('Invalid address'); return; }
+
+  ws.onopen = async () => {
+    document.getElementById('conn-addr').textContent = `${ip}:${port}`;
+    setConnStatus(true);
+    
+    // Listen for pong messages to measure latency
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'pong' && pingTime) {
+          const latency = Math.round(performance.now() - pingTime);
+          document.getElementById('lat-val').textContent = latency;
+          pingTime = null;
+        }
+      } catch(e) {}
+    };
+    
+    // Check permission requirement (iOS 13+)
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      showScreen('perm-screen');
+    } else {
+      startSensors();
+      showScreen('main-screen');
+    }
+  };
+
+  ws.onclose = () => {
+    setConnStatus(false);
+    toast('Disconnected from server');
+    stopSensors();
+    if (document.getElementById('main-screen').style.display !== 'none' &&
+        !document.getElementById('main-screen').classList.contains('hidden')) {
+      showScreen('connect-screen');
+    }
+  };
+
+  ws.onerror = (e) => {
+    toast('Connection failed. Check IP & that server is running.');
+    showScreen('connect-screen');
+  };
+}
+
+function disconnect() {
+  if (ws) { ws.close(); ws = null; }
+  stopSensors();
+  showScreen('connect-screen');
+}
+
+function setConnStatus(up) {
+  const dot  = document.getElementById('conn-dot');
+  const text = document.getElementById('conn-text');
+  if (up) {
+    dot.className = 'status-dot connected';
+    text.textContent = 'Connected';
+  } else {
+    dot.className = 'status-dot error';
+    text.textContent = 'Disconnected';
+  }
+}
+
+// ──────────────────────────────────────────────
+//  Permission (iOS)
+// ──────────────────────────────────────────────
+async function requestPermission() {
+  try {
+    const res = await DeviceOrientationEvent.requestPermission();
+    if (res === 'granted') {
+      startSensors();
+      showScreen('main-screen');
+    } else {
+      toast('Permission denied. Cannot read gyroscope.');
+    }
+  } catch(e) {
+    // Not iOS — proceed anyway
+    startSensors();
+    showScreen('main-screen');
+  }
+}
+
+// ──────────────────────────────────────────────
+//  Sensors
+// ──────────────────────────────────────────────
+let latestAlpha = 0, latestBeta = 0, latestGamma = 0;
+let smoothAlpha = 0;
+
+function smoothAngle(prev, next, a) {
+  // Wraparound-aware smoothing for alpha (0-360)
+  let d = next - prev;
+  if (d >  180) d -= 360;
+  if (d < -180) d += 360;
+  let s = prev + a * d;
+  if (s < 0) s += 360;
+  if (s >= 360) s -= 360;
+  return s;
+}
+
+function onOrientation(e) {
+  if (e.beta == null || e.gamma == null) return;
+  // Smooth raw sensor values
+  smoothAlpha = smoothAngle(smoothAlpha, e.alpha || 0, ALPHA);
+  smoothBeta  = ALPHA * e.beta  + (1 - ALPHA) * smoothBeta;
+  smoothGamma = ALPHA * e.gamma + (1 - ALPHA) * smoothGamma;
+  latestAlpha = smoothAlpha;
+  latestBeta  = smoothBeta;
+  latestGamma = smoothGamma;
+
+  // Update visualizer
+  const beta  = Math.max(-45, Math.min(45, smoothBeta));
+  const gamma = Math.max(-45, Math.min(45, smoothGamma));
+  const cx = 50 + (gamma / 45) * 38;  // % of 76px radius
+  const cy = 50 + (beta  / 45) * 38;
+  const dot = document.getElementById('tilt-dot');
+  dot.style.left = cx + '%';
+  dot.style.top  = cy + '%';
+  document.getElementById('val-beta').textContent  = smoothBeta.toFixed(1)  + '°';
+  document.getElementById('val-gamma').textContent = smoothGamma.toFixed(1) + '°';
+}
+
+function sensorLoop(ts) {
+  if (!tracking || !ws || ws.readyState !== WebSocket.OPEN) {
+    rafId = requestAnimationFrame(sensorLoop);
+    return;
+  }
+  if (ts - lastSendTime >= (window._pollInterval || SEND_INTERVAL_MS)) {
+    lastSendTime = ts;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        // Binary fast-path: 3x Float32 = 12 bytes (vs ~50 byte JSON)
+        const buf = new ArrayBuffer(12);
+        const view = new DataView(buf);
+        view.setFloat32(0, latestAlpha, false);  // big-endian to match server struct.unpack('!fff')
+        view.setFloat32(4, latestBeta,  false);
+        view.setFloat32(8, latestGamma, false);
+        ws.send(buf);
+      } catch(e) {}
+    }
+  }
+  rafId = requestAnimationFrame(sensorLoop);
+}
+
+function startSensors() {
+  window.addEventListener('deviceorientation', onOrientation, true);
+  rafId = requestAnimationFrame(sensorLoop);
+  toast('🎯 Tracking active — tilt phone to move cursor');
+}
+
+function stopSensors() {
+  window.removeEventListener('deviceorientation', onOrientation, true);
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+}
+
+// ──────────────────────────────────────────────
+//  Tracking toggle
+// ──────────────────────────────────────────────
+function toggleTracking() {
+  tracking = !tracking;
+  const btn  = document.getElementById('track-btn');
+  const icon = document.getElementById('track-icon');
+  if (tracking) {
+    btn.classList.remove('paused');
+    icon.textContent = '🎯';
+    btn.innerHTML = '<span id="track-icon">🎯</span>&nbsp; Tracking ON';
+    toast('Tracking ON');
+  } else {
+    btn.classList.add('paused');
+    btn.innerHTML = '<span id="track-icon">⏸</span>&nbsp; Tracking PAUSED';
+    toast('Tracking paused');
+    prevBeta = null; prevGamma = null;
+  }
+}
+
+// ──────────────────────────────────────────────
+//  Actions
+// ──────────────────────────────────────────────
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try { ws.send(JSON.stringify(obj)); } catch(e) {}
+  }
+}
+
+function sendClick(btn) {
+  send({ type: 'click', button: btn });
+  // haptic
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function sendScroll(dy) {
+  send({ type: 'scroll', dy });
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+function updateSensitivity(val) {
+  sensitivity = parseFloat(val);
+  document.getElementById('sens-val').textContent = val;
+  send({ type: 'sensitivity', value: sensitivity });
+}
+
+let currentPollRate = 60;
+function setPollingRate(hz) {
+  currentPollRate = hz;
+  // Update interval (SEND_INTERVAL_MS is const so we use a mutable var)
+  window._pollInterval = 1000 / hz;
+  // Highlight active button
+  [30, 60, 90, 120, 240].forEach(r => {
+    const btn = document.getElementById('poll-' + r);
+    if (r === hz) {
+      btn.style.background = 'linear-gradient(135deg,var(--accent),#059669)';
+      btn.style.border = '1px solid transparent';
+      btn.style.color = '#fff';
+    } else {
+      btn.style.background = 'var(--glass)';
+      btn.style.border = '1px solid var(--glass-border)';
+      btn.style.color = '#e8e8f0';
+    }
+  });
+  toast(`Polling rate: ${hz} Hz`);
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+// ──────────────────────────────────────────────
+//  Autofill IP from URL (server injects it)
+// ──────────────────────────────────────────────
+(function autoFillIP() {
+  const ip = window.location.hostname;
+  if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+    document.getElementById('ip-input').value = ip;
+  }
+})();
+
+// ──────────────────────────────────────────────
+//  Latency measurement (ping-pong)
+// ──────────────────────────────────────────────
+let pingTime = null;
+
+function sendPing() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try {
+      pingTime = performance.now();
+      ws.send(JSON.stringify({type:'ping'}));
+    } catch(e) {}
+  }
+}
+
+// Listen for pong messages
+setInterval(sendPing, 2000);
+
+// ──────────────────────────────────────────────
+//  Prevent screen sleep (Wake Lock API)
+// ──────────────────────────────────────────────
+async function keepAwake() {
+  if ('wakeLock' in navigator) {
+    try {
+      await navigator.wakeLock.request('screen');
+    } catch(e) {}
+  }
+}
+document.addEventListener('visibilitychange', keepAwake);
+keepAwake();
+</script>
+</body>
+</html>

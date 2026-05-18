@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a14">
+<title>GyroCursor UDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; width: 100%;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #08080f;
+    color: #e8e8f0;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none; -webkit-user-select: none;
+  }
+  :root {
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --success: #22d3a0;
+    --danger: #ff4f6e;
+    --warn: #fbbf24;
+    --glass: rgba(255,255,255,0.05);
+    --glass-border: rgba(255,255,255,0.1);
+    --radius: 20px; --radius-sm: 12px;
+  }
+  #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+  .screen {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; transform: scale(0.96); }
+
+  .card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 24px;
+    width: 100%; max-width: 380px;
+  }
+
+  /* Connect screen */
+  .logo { font-size: 52px; margin-bottom: 8px; animation: float 3s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  .app-title {
+    font-size: 30px; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; text-align: center; margin-bottom: 4px;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.3);
+    color: var(--accent); padding: 4px 10px; border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .app-subtitle { font-size: 13px; color:rgba(255,255,255,0.4); text-align:center; margin-bottom:24px; line-height:1.5; }
+  .input-label { font-size:11px; font-weight:600; letter-spacing:0.08em; color:rgba(255,255,255,0.35); text-transform:uppercase; margin-bottom:5px; }
+  .input-group { display:flex; flex-direction:column; gap:12px; margin-bottom:18px; }
+  input[type=text], input[type=number] {
+    flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border);
+    border-radius:var(--radius-sm); color:#e8e8f0; font-family:inherit; font-size:16px;
+    padding:12px 16px; outline:none; transition:border-color 0.2s;
+  }
+  input:focus { border-color:var(--accent); }
+  input[type=number] { width:80px; flex:none; text-align:center; }
+
+  .btn {
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    border:none; cursor:pointer; font-family:inherit;
+    border-radius:var(--radius-sm); transition:all 0.18s ease;
+    font-weight:600; letter-spacing:0.02em;
+  }
+  .btn:active { transform:scale(0.96); }
+  .btn-primary {
+    width:100%; padding:16px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; font-size:16px;
+    box-shadow:0 4px 24px rgba(0,212,255,0.25);
+  }
+
+  /* Status dot */
+  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--warn); display:inline-block; transition:background 0.3s; }
+  .status-dot.connected { background:var(--success); animation:pulse-green 2s infinite; }
+  .status-dot.error { background:var(--danger); }
+  @keyframes pulse-green { 0%,100%{box-shadow:0 0 0 0 rgba(34,211,160,0.4)} 50%{box-shadow:0 0 0 6px rgba(34,211,160,0)} }
+
+  /* Main screen */
+  #main-screen { flex-direction:column; gap:12px; justify-content:flex-start; padding-top:48px; overflow-y:auto; }
+  .status-bar {
+    display:flex; align-items:center; justify-content:space-between;
+    width:100%; max-width:380px;
+    background:var(--glass); border:1px solid var(--glass-border);
+    border-radius:var(--radius-sm); padding:12px 16px;
+    backdrop-filter:blur(16px);
+  }
+  .status-text { font-size:13px; font-weight:500; }
+  .conn-info { font-size:11px; opacity:0.45; }
+
+  /* UDP badge in status */
+  .udp-pill {
+    font-size:10px; font-weight:700; letter-spacing:0.07em;
+    background:rgba(0,212,255,0.15); border:1px solid rgba(0,212,255,0.3);
+    color:var(--accent); padding:2px 8px; border-radius:10px; text-transform:uppercase;
+  }
+
+  /* Latency meter */
+  .lat-bar {
+    display:flex; gap:8px; align-items:center;
+    width:100%; max-width:380px;
+    background:var(--glass); border:1px solid var(--glass-border);
+    border-radius:var(--radius-sm); padding:10px 16px;
+  }
+  .lat-label { font-size:11px; color:rgba(255,255,255,0.4); flex:1; }
+  .lat-val { font-size:20px; font-weight:700; color:var(--accent); }
+  .lat-unit { font-size:11px; color:rgba(255,255,255,0.4); align-self:flex-end; margin-bottom:2px; }
+
+  /* Tilt visualizer */
+  .tilt-card { position:relative; display:flex; align-items:center; justify-content:center; height:180px; }
+  .tilt-ring { position:absolute; border-radius:50%; border:1px solid rgba(255,255,255,0.07); }
+  .crosshair { position:absolute; width:140px; height:140px; display:flex; align-items:center; justify-content:center; }
+  .crosshair::before,.crosshair::after { content:''; position:absolute; background:rgba(255,255,255,0.08); }
+  .crosshair::before { width:1px; height:100%; }
+  .crosshair::after  { width:100%; height:1px; }
+  .tilt-dot {
+    position:absolute; width:16px; height:16px; border-radius:50%;
+    background:radial-gradient(circle,var(--accent),var(--accent2));
+    box-shadow:0 0 14px rgba(0,212,255,0.7);
+    transform:translate(-50%,-50%); left:50%; top:50%;
+    transition:left 0.06s,top 0.06s; z-index:2;
+  }
+  .tilt-lbl { position:absolute; font-size:10px; color:rgba(255,255,255,0.3); font-weight:500; }
+  .tilt-lbl.t{top:8px} .tilt-lbl.b{bottom:8px}
+  .tilt-lbl.l{left:6px;top:50%;transform:translateY(-50%)}
+  .tilt-lbl.r{right:6px;top:50%;transform:translateY(-50%)}
+  .tilt-vals { position:absolute; bottom:10px; display:flex; gap:20px; }
+  .tv { text-align:center; font-size:10px; color:rgba(255,255,255,0.35); }
+  .tv span { display:block; font-size:14px; font-weight:700; color:var(--accent); }
+
+  /* Controls */
+  .section-title { font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.3); margin-bottom:8px; }
+  .slider-row { display:flex; align-items:center; gap:12px; }
+  .slider-row label { font-size:12px; color:rgba(255,255,255,0.45); min-width:72px; }
+  input[type=range] { -webkit-appearance:none; flex:1; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 0 8px rgba(0,212,255,0.5); }
+  .slider-val { font-size:13px; font-weight:600; min-width:28px; text-align:right; }
+
+  .poll-row { display:flex; gap:6px; margin-top:12px; }
+  .poll-btn { flex:1; padding:9px 3px; font-size:11px; font-weight:600; border-radius:9px; background:var(--glass); border:1px solid var(--glass-border); color:#e8e8f0; cursor:pointer; transition:all 0.15s; }
+  .poll-btn:active { transform:scale(0.94); }
+  .poll-btn.active { background:linear-gradient(135deg,var(--accent),var(--accent2)); border-color:transparent; color:#fff; }
+
+  .btn-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .btn-action { padding:16px 6px; font-size:12px; background:var(--glass); border:1px solid var(--glass-border); color:#e8e8f0; border-radius:var(--radius-sm); flex-direction:column; gap:5px; }
+  .btn-action .ico { font-size:20px; }
+  .btn-action.lc { border-color:rgba(0,212,255,0.25); }
+  .btn-action.rc { border-color:rgba(255,79,110,0.25); }
+  .btn-action.dc { border-color:rgba(34,211,160,0.25); }
+  .btn-action.su,.btn-action.sd { border-color:rgba(251,191,36,0.2); }
+  .btn-action:active { background:rgba(255,255,255,0.12); transform:scale(0.94); }
+
+  .track-btn { width:100%; padding:16px; font-size:16px; border-radius:var(--radius-sm); background:linear-gradient(135deg,var(--success),#059669); color:#fff; box-shadow:0 4px 20px rgba(34,211,160,0.3); }
+  .track-btn.paused { background:linear-gradient(135deg,#374151,#1f2937); box-shadow:none; }
+
+  #toast {
+    position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+    background:rgba(15,15,25,0.95); border:1px solid var(--glass-border);
+    color:#e8e8f0; padding:11px 20px; border-radius:50px; font-size:13px; font-weight:500;
+    opacity:0; pointer-events:none; transition:opacity 0.3s;
+    white-space:nowrap; z-index:100; backdrop-filter:blur(16px);
+  }
+  #toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<!-- CONNECT SCREEN -->
+<div class="screen" id="connect-screen">
+  <div style="text-align:center;margin-bottom:22px;">
+    <div class="logo">🚀</div>
+    <div class="app-title">GyroCursor</div>
+    <div class="badge">⚡ UDP · WebTransport</div>
+    <div class="app-subtitle">Lowest latency mode — UDP datagrams<br>No cert warning, no TCP overhead</div>
+  </div>
+  <div class="card">
+    <div class="input-group">
+      <div>
+        <div class="input-label">Laptop IP Address</div>
+        <input type="text" id="ip-input" placeholder="192.168.1.x" autocomplete="off" inputmode="decimal" spellcheck="false">
+      </div>
+      <div>
+        <div class="input-label">WebTransport Port</div>
+        <input type="number" id="port-input" value="__WT_PORT__" min="1" max="65535">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="connect()">
+      <span>Connect via UDP</span> <span>⚡</span>
+    </button>
+    <div style="margin-top:12px;font-size:11px;color:rgba(255,255,255,0.25);text-align:center;">
+      Same WiFi network required · No cert warning needed
+    </div>
+  </div>
+</div>
+
+<!-- MAIN SCREEN -->
+<div class="screen hidden" id="main-screen">
+
+  <div class="status-bar">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="status-dot connected" id="conn-dot"></div>
+      <span class="status-text" id="conn-text">Connected</span>
+      <span class="udp-pill">UDP</span>
+    </div>
+    <span class="conn-info" id="conn-addr"></span>
+  </div>
+
+  <!-- Latency meter -->
+  <div class="lat-bar">
+    <span class="lat-label">📡 Round-trip</span>
+    <span class="lat-val" id="lat-val">—</span>
+    <span class="lat-unit">ms</span>
+    <span style="margin-left:8px;font-size:11px;color:rgba(255,255,255,0.3);" id="poll-display">60 Hz</span>
+  </div>
+
+  <!-- Tracking toggle -->
+  <div style="width:100%;max-width:380px;">
+    <button class="btn track-btn" id="track-btn" onclick="toggleTracking()">
+      🎯&nbsp; Tracking ON
+    </button>
+  </div>
+
+  <!-- Tilt visualizer -->
+  <div class="card tilt-card" style="padding:0;overflow:hidden;">
+    <div class="tilt-ring" style="width:150px;height:150px;"></div>
+    <div class="tilt-ring" style="width:110px;height:110px;"></div>
+    <div class="tilt-ring" style="width:70px;height:70px;"></div>
+    <div class="crosshair"></div>
+    <div class="tilt-dot" id="tilt-dot"></div>
+    <span class="tilt-lbl t">↑</span><span class="tilt-lbl b">↓</span>
+    <span class="tilt-lbl l">←</span><span class="tilt-lbl r">→</span>
+    <div class="tilt-vals">
+      <div class="tv">β <span id="val-beta">0°</span></div>
+      <div class="tv">γ <span id="val-gamma">0°</span></div>
+    </div>
+  </div>
+
+  <!-- Sensitivity + Polling -->
+  <div class="card" style="padding:16px 18px;">
+    <div class="section-title">Sensitivity</div>
+    <div class="slider-row">
+      <label>Slow ↔ Fast</label>
+      <input type="range" id="sens-slider" min="3" max="50" value="18" oninput="updateSensitivity(this.value)">
+      <span class="slider-val" id="sens-val">18</span>
+    </div>
+    <div style="margin-top:14px;">
+      <div class="section-title">Polling Rate</div>
+      <div class="poll-row">
+        <button class="poll-btn" id="pb-30"  onclick="setRate(30)">30</button>
+        <button class="poll-btn active" id="pb-60"  onclick="setRate(60)">60</button>
+        <button class="poll-btn" id="pb-90"  onclick="setRate(90)">90</button>
+        <button class="poll-btn" id="pb-120" onclick="setRate(120)">120</button>
+        <button class="poll-btn" id="pb-240" onclick="setRate(240)">240</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div style="width:100%;max-width:380px;">
+    <div class="section-title">Actions</div>
+    <div class="btn-grid">
+      <button class="btn btn-action lc" onclick="sendCtrl({type:'click',button:'left'})"><span class="ico">👆</span>Left</button>
+      <button class="btn btn-action rc" onclick="sendCtrl({type:'click',button:'right'})"><span class="ico">👉</span>Right</button>
+      <button class="btn btn-action dc" onclick="sendCtrl({type:'click',button:'double'})"><span class="ico">👆👆</span>Double</button>
+      <button class="btn btn-action su" onclick="sendCtrl({type:'scroll',dy:3})"><span class="ico">⬆️</span>Up</button>
+      <button class="btn btn-action sd" onclick="sendCtrl({type:'scroll',dy:-3})"><span class="ico">⬇️</span>Down</button>
+      <button class="btn btn-action"   onclick="disconnect()" style="font-size:11px;"><span class="ico">✕</span>Disconnect</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Background particles ──
+(function(){
+  const c=document.getElementById('bg-canvas'),ctx=c.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  function make(){pts=[];const N=Math.floor(W*H/16000);for(let i=0;i<N;i++)pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,r:Math.random()*1.2+.3,a:Math.random()*.35+.05});}
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*.65);
+    g.addColorStop(0,'rgba(0,212,255,0.05)');g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(0,212,255,${p.a})`;ctx.fill();}
+    requestAnimationFrame(draw);
+  }
+  resize();make();draw();
+  window.addEventListener('resize',()=>{resize();make();});
+})();
+
+// ── State ──
+let transport = null;
+let dgWriter  = null;    // datagram writer (move)
+let ctrlStream = null;   // bidirectional stream writer (click/scroll)
+let tracking  = true;
+let smoothAlpha=0, smoothBeta=0, smoothGamma=0;
+let latestAlpha=0, latestBeta=0, latestGamma=0;
+const SMOOTH = 0.85;
+let pollInterval = 1000/60;
+let lastSend = 0;
+let rafId = null;
+let pingInterval = null;
+let pingTime = 0;
+
+// Cert fingerprint injected by server
+const CERT_HASH_BYTES = new Uint8Array([__CERT_HASH__]);
+
+// Debug logging
+console.log("GyroCursor UDP Client");
+console.log("Cert fingerprint bytes:", Array.from(CERT_HASH_BYTES));
+console.log("Cert fingerprint hex:", Array.from(CERT_HASH_BYTES).map(b => b.toString(16).padStart(2, '0')).join(':'));
+
+// ── Screen management ──
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('hidden',s.id!==id));}
+
+// ── Toast ──
+let toastT=null;
+function toast(msg,dur=2500){const e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),dur);}
+
+// ── Connect ──
+async function connect(){
+  const ip   = document.getElementById('ip-input').value.trim();
+  const port = document.getElementById('port-input').value.trim();
+  if(!ip){toast('Enter laptop IP');return;}
+
+  if(!window.WebTransport){
+    toast('WebTransport not supported — use Chrome 97+');return;
+  }
+
+  const url = `https://${ip}:${port}/gyrocursor`;
+  toast('Connecting via UDP…');
+  
+  console.log(`[WebTransport] Connecting to ${url}`);
+  console.log(`[WebTransport] Using cert hash: ${Array.from(CERT_HASH_BYTES).join(',')}`);
+
+  try {
+    transport = new WebTransport(url, {
+      serverCertificateHashes: [{
+        algorithm: 'sha-256',
+        value: CERT_HASH_BYTES
+      }]
+    });
+    
+    console.log("[WebTransport] Created transport object, waiting for ready...");
+
+    await transport.ready;
+    
+    console.log("[WebTransport] 🎉 Connection established!");
+
+    // Datagram writer for move (unreliable/fast)
+    dgWriter = transport.datagrams.writable.getWriter();
+
+    // Bidirectional stream for control messages (reliable)
+    const bidi = await transport.createBidirectionalStream();
+    ctrlStream = bidi.writable.getWriter();
+    
+    console.log("[Stream] Created bidirectional stream, starting reader...");
+    
+    // Start reading pong responses for latency measurement
+    (async () => {
+      const reader = bidi.readable.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let lineCount = 0;
+      try {
+        while (true) {
+          const {value, done} = await reader.read();
+          if (done) {
+            console.log("[Stream] Reader done");
+            break;
+          }
+          
+          const chunk = decoder.decode(value, {stream: true});
+          console.log(`[Stream] Received ${chunk.length} bytes:`, JSON.stringify(chunk.substring(0, 50)));
+          buffer += chunk;
+          
+          // Process complete lines
+          while (buffer.includes('\n')) {
+            const newlineIdx = buffer.indexOf('\n');
+            const line = buffer.substring(0, newlineIdx);
+            buffer = buffer.substring(newlineIdx + 1);
+            lineCount++;
+            
+            console.log(`[Stream] Line ${lineCount}: ${line}`);
+            
+            try {
+              const msg = JSON.parse(line);
+              console.log('[Stream] Parsed message:', msg);
+              
+              if (msg.type === 'pong') {
+                console.log('[Stream] Got pong! pingTime was:', pingTime);
+                if (pingTime > 0) {
+                  const latency = Math.round(performance.now() - pingTime);
+                  document.getElementById('lat-val').textContent = latency;
+                  console.log(`[Latency] ${latency}ms`);
+                } else {
+                  console.log('[Stream] pingTime is 0, ignoring pong');
+                }
+              }
+            } catch (e) {
+              console.warn('[Stream] Parse error on line:', line, e);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[Stream] Reader error:', e);
+      }
+    })().catch(e => console.error('[Stream] Reader setup failed:', e));
+
+    document.getElementById('conn-addr').textContent = `${ip}:${port}`;
+    document.getElementById('conn-dot').className = 'status-dot connected';
+    document.getElementById('conn-text').textContent = 'Connected';
+
+    startSensors();
+    showScreen('main-screen');
+    toast('🚀 Connected! UDP latency mode active');
+
+    // Watch for close
+    transport.closed.then(()=>{
+      onDisconnected();
+    }).catch(()=>onDisconnected());
+
+    // Ping loop for latency measurement
+    pingInterval = setInterval(sendPing, 1000);
+
+  } catch(e) {
+    console.error("[WebTransport] Connection failed:", e);
+    console.error("[WebTransport] Error name:", e.name);
+    console.error("[WebTransport] Error message:", e.message);
+    toast('❌ ' + (e.message || e));
+    transport = null;
+  }
+}
+
+function onDisconnected(){
+  stopSensors();
+  clearInterval(pingInterval);
+  document.getElementById('conn-dot').className = 'status-dot error';
+  document.getElementById('conn-text').textContent = 'Disconnected';
+  toast('Disconnected');
+  setTimeout(()=>showScreen('connect-screen'), 1200);
+}
+
+function disconnect(){
+  if(transport){transport.close();transport=null;}
+  stopSensors();
+  clearInterval(pingInterval);
+  showScreen('connect-screen');
+}
+
+// ── Latency ping (stream-based) ──
+async function sendPing(){
+  pingTime = performance.now();
+  sendCtrl({type:'ping'});
+}
+
+// ── Sensors ──
+function smoothAngle(prev,next,a){
+  let d=next-prev;
+  if(d>180)d-=360;if(d<-180)d+=360;
+  let s=prev+a*d;
+  if(s<0)s+=360;if(s>=360)s-=360;
+  return s;
+}
+
+function onOrientation(e){
+  if(e.beta==null)return;
+  smoothAlpha = smoothAngle(smoothAlpha, e.alpha||0, SMOOTH);
+  smoothBeta  = SMOOTH*e.beta  + (1-SMOOTH)*smoothBeta;
+  smoothGamma = SMOOTH*e.gamma + (1-SMOOTH)*smoothGamma;
+  latestAlpha=smoothAlpha; latestBeta=smoothBeta; latestGamma=smoothGamma;
+
+  // Update visualizer
+  const b=Math.max(-45,Math.min(45,smoothBeta));
+  const g=Math.max(-45,Math.min(45,smoothGamma));
+  const dot=document.getElementById('tilt-dot');
+  dot.style.left=(50+(g/45)*36)+'%';
+  dot.style.top =(50+(b/45)*36)+'%';
+  document.getElementById('val-beta').textContent  = smoothBeta.toFixed(1)+'°';
+  document.getElementById('val-gamma').textContent = smoothGamma.toFixed(1)+'°';
+}
+
+function sensorLoop(ts){
+  if(tracking && dgWriter && ts-lastSend>=pollInterval){
+    lastSend=ts;
+    try{
+      const buf=new ArrayBuffer(12);
+      const v=new DataView(buf);
+      v.setFloat32(0,latestAlpha,false);
+      v.setFloat32(4,latestBeta,false);
+      v.setFloat32(8,latestGamma,false);
+      dgWriter.write(new Uint8Array(buf));
+    }catch(e){}
+  }
+  rafId=requestAnimationFrame(sensorLoop);
+}
+
+function startSensors(){
+  window.addEventListener('deviceorientation',onOrientation,true);
+  rafId=requestAnimationFrame(sensorLoop);
+}
+function stopSensors(){
+  window.removeEventListener('deviceorientation',onOrientation,true);
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+}
+
+// ── Tracking toggle ──
+function toggleTracking(){
+  tracking=!tracking;
+  const btn=document.getElementById('track-btn');
+  btn.innerHTML = tracking ? '🎯&nbsp; Tracking ON' : '⏸&nbsp; Tracking PAUSED';
+  btn.className = 'btn track-btn' + (tracking?'':' paused');
+  toast(tracking?'Tracking ON':'Tracking paused');
+}
+
+// ── Send control messages (reliable stream) ──
+async function sendCtrl(obj){
+  if(!ctrlStream) return;
+  try{
+    const data = new TextEncoder().encode(JSON.stringify(obj)+'\n');
+    await ctrlStream.write(data);
+    if(navigator.vibrate&&obj.type==='click') navigator.vibrate(25);
+  }catch(e){}
+}
+
+// ── Sensitivity ──
+function updateSensitivity(val){
+  document.getElementById('sens-val').textContent=val;
+  sendCtrl({type:'sensitivity',value:parseFloat(val)});
+}
+
+// ── Polling rate ──
+function setRate(hz){
+  pollInterval=1000/hz;
+  document.getElementById('poll-display').textContent=hz+' Hz';
+  document.querySelectorAll('.poll-btn').forEach(b=>{
+    b.classList.toggle('active', b.id==='pb-'+hz);
+  });
+  toast('Polling: '+hz+' Hz');
+  if(navigator.vibrate) navigator.vibrate(12);
+}
+
+// ── Autofill IP ──
+(function(){
+  const ip=location.hostname;
+  if(ip&&ip!=='localhost'&&ip!=='127.0.0.1')
+    document.getElementById('ip-input').value=ip;
+})();
+
+// ── Wake Lock ──
+async function keepAwake(){
+  if('wakeLock' in navigator){try{await navigator.wakeLock.request('screen');}catch(e){}}
+}
+document.addEventListener('visibilitychange',keepAwake);
+keepAwake();
+</script>
+</body>
+</html>
