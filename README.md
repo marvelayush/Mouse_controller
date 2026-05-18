@@ -12,7 +12,8 @@ The project combines:
 - Interactive frontend dashboard
 - Live telemetry visualization
 - Smartphone gyroscope control
-
+- you can check out the front end(ONLY) here:-
+ https://mouse-controller-nine.vercel.app/
 ---
 
 # ✨ Features
