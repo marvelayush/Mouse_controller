@@ -25,7 +25,7 @@ export default function Home() {
   const [step, setStep] = useState(0); // 0: Hero Landing, 1: Initialize QR, 2: Active Telemetry
   const [sessionId, setSessionId] = useState('');
   const [qrUrl, setQrUrl] = useState('');
-  const [localIp, setLocalIp] = useState('192.168.0.3'); // Current active laptop LAN IP default
+  const [localIp, setLocalIp] = useState('mouse-controller-nine.vercel.app'); // Current active laptop LAN IP default
   const [loadingSession, setLoadingSession] = useState(false);
   
   // Custom progress and interactive states
@@ -264,7 +264,7 @@ export default function Home() {
     }, 120);
 
     try {
-      const targetUrl = `https://${localIp}:8443`;
+      const targetUrl = `https://mouse-controller-nine.vercel.app`;
       setQrUrl(targetUrl);
       setSessionId('LOCAL-LAN');
       connectSession('LOCAL-LAN');
@@ -841,7 +841,7 @@ export default function Home() {
                         onChange={(e) => {
                           const val = e.target.value;
                           setLocalIp(val);
-                          setQrUrl(`https://${val}:8443`);
+                          setQrUrl(`https://mouse-controller-nine.vercel.app`);
                           logToConsole(`IP REBOUND -> ${val}`);
                         }}
                         placeholder="e.g. 192.168.0.3"
