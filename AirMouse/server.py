@@ -66,8 +66,8 @@ from websockets.server import serve
 
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-HTTP_PORT  = 8443   # HTTPS port — phone opens this
-WS_PORT    = 8765   # WebSocket port
+HTTP_PORT = int(os.environ.get("PORT", 8443))
+WS_PORT = HTTP_PORT   # WebSocket port
 CERT_FILE  = Path(__file__).parent / "cert.pem"
 KEY_FILE   = Path(__file__).parent / "key.pem"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -199,7 +199,7 @@ def start_https_server(ip: str):
 
     server = http.server.HTTPServer(("0.0.0.0", HTTP_PORT), HTTPSHandler)
     server.socket = context.wrap_socket(server.socket, server_side=True)
-    log.info(f"HTTPS server → https://{ip}:{HTTP_PORT}")
+    log.info(f"HTTPS server running on port {HTTP_PORT}")
     server.serve_forever()
 
 
@@ -373,8 +373,13 @@ async def ws_handler(websocket):
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
-def print_banner(ip: str):
-    url = f"https://{ip}:{HTTP_PORT}"
+    def print_banner(ip: str):
+        render_url = os.environ.get("RENDER_EXTERNAL_URL")
+
+    if render_url:
+        url = render_url
+    else:
+        url = f"https://{ip}:{HTTP_PORT}"
     print()
     print("╔══════════════════════════════════════════════════════════╗")
     print("║             🖱️  GyroCursor Server  🖱️                    ║")
