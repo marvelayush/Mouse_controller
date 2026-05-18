@@ -88,6 +88,15 @@ The terminal will display something similar to:
 https://192.168.x.x:8443
 ```
 
+## 2.1 Open Another Terminal
+
+Open a new terminal while the backend server is still running.
+
+```bash
+cd main_website
+npm install
+npm run dev
+
 ---
 
 ## 3. Connect Your Phone
