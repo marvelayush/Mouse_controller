@@ -82,8 +82,9 @@ MAX_DELTA_DEG    = 25.0   # clamp huge jumps (phone picked up / put down)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 log = logging.getLogger("gyrocursor")
 
-pyautogui.FAILSAFE = False
-pyautogui.PAUSE    = 0
+if PYAUTOGUI_AVAILABLE:
+    pyautogui.FAILSAFE = False
+    pyautogui.PAUSE = 0
 
 # ─── TLS Certificate (self-signed) ────────────────────────────────────────────
 def generate_cert():
