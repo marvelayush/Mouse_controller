@@ -88,7 +88,7 @@ The terminal will display something similar to:
 https://192.168.x.x:8443
 ```
 
-## 2.1 Open Another Terminal
+## 3. Open Another Terminal
 
 Open a new terminal while the backend server is still running.
 
@@ -99,11 +99,13 @@ npm run dev
 
 ```
 
-## 3. Connect Your Phone
+## 4. Connect Your Phone
 
 1. Connect laptop and phone to the same WiFi network
-2. Open the generated HTTPS URL in Chrome on your phone
-3. If Chrome shows:
+2. click on get started in the website , it will give you a qr code
+3. scan it on phone
+4. Open the generated HTTPS URL in Chrome on your phone
+5. If Chrome shows:
    ```text
    Your connection is not private
    ```
@@ -111,13 +113,13 @@ npm run dev
    ```text
    Advanced → Proceed
    ```
-4. The motion controller interface opens
-5. Tap:
+6. The motion controller interface opens
+7. Tap:
    ```text
    Connect
    ```
-6. Allow motion sensor permissions
-7. Start controlling the cursor using phone motion
+8. Allow motion sensor permissions
+9. Start controlling the cursor using phone motion
 
 ---
 
