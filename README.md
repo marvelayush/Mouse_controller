@@ -97,7 +97,7 @@ cd main_website
 npm install
 npm run dev
 
----
+```
 
 ## 3. Connect Your Phone
 
